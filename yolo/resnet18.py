@@ -7,6 +7,8 @@ import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 import numpy as np
 import yolo.config as cfg
+from keras.layers import Activation
+from keras import layers
 
 class Resnet18(object):
     def __init__(self, isTraining = True):
@@ -37,46 +39,121 @@ class Resnet18(object):
             self.labels = tf.placeholder(tf.float32, [None, self.cell_size, self.cell_size, self.box_per_cell, self.num_class + 5], name = 'labels')
             self.total_loss = self.loss_layer(self.logits, self.labels)
             tf.summary.scalar('total_loss', self.total_loss)
+    
 
     def build_networks(self, inputs):
+
+        net = self.conv_layer(inputs, [3, 3, 3, 32],name = '0_conv')
+        net = self.pooling_layer(net, name = '1_pool')
+
+        net = self.conv_layer(net, [3, 3, 32, 64], name = '2_conv')
+        net = self.identity_block(net, [3, 3, 32, 64], name = 'identity_1')
+        net = self.conv_layer(net, [3, 3, 32, 64], name = '3_conv')
+        #net = self.identity_block(net, [3, 3, 64, 128],name = 'identity_2')
+
+
+        net = self.conv_layer(net, [3, 3, 64, 128], name = '4_conv')
+        #net = self.conv_layer(net, [1, 1, 128, 64], name = '5_conv')
+        net = self.identity_block(net,[3, 3, 64, 128],name= 'identty_2')
+        net = self.conv_layer(net, [3, 3, 64, 128], name = '5_conv')
+        net = self.conv_layer(net, [3, 3, 64, 256], name = '6_conv')
+        net = self.identity_block(net,[3, 3, 128, 256],name= 'identty_3')
+
+        net = self.conv_layer(net, [3, 3, 128, 256], name = '7_conv')
+        net = self.conv_layer(net, [3, 3, 256, 512], name = '8_conv')       
+        net = self.identity_block(net,[3, 3, 256, 512],name= 'identty_4')
+
+        net = self.conv_layer(net, [3, 3, 256, 512], name = '9_conv')
+        net = self.conv_layer(net, [3, 3, 256, 1024], name = '10_conv')
+        #net = self.conv_layer(net, [1, 1, 256, 128], name = '9_conv')
+        net = self.identity_block(net,[3, 3, 256, 1024],name= 'identty_5')
+        
+       
+        #net = self.identity_block(net,[3, 3, 256, 512],name= 'identty_8')
+
+        
+        net = self.pooling_layer(net, name = '2_pool')
+
+        net = self.conv_layer(net, [3, 3, 512, 1024], name = '11_conv')
+        
+
+        net = self.conv_layer(net, [1, 1, 1024, self.box_per_cell * (self.num_class + 5)],name = '11_conv')
+
+        return net
+
+
+        '''def build_networks(self, inputs):
         net = self.conv_layer(inputs, [3, 3, 3, 32], name = '0_conv')
         net = self.pooling_layer(net, name = '1_pool')
 
         net = self.conv_layer(net, [3, 3, 32, 64], name = '2_conv')
-        net = self.pooling_layer(net, name = '3_pool')
+        net = self.conv_layer(net, [3, 3, 32, 64], name = '3_conv')
+        net = self.identity_block(net, [3, 3, 32, 64],name= 'identity_1')
+        #net = self.pooling_layer(net, name = '3_pool')
+        net = self.conv_layer(net, [3, 3, 32, 64], name = '4_conv')
+        net = self.conv_layer(net, [3, 3, 32, 64], name = '5_conv')
+        net = self.identity_block(net, [3, 3, 64, 128],name= 'identity_2')
 
-        net = self.conv_layer(net, [3, 3, 64, 128], name = '4_conv')
-        net = self.conv_layer(net, [1, 1, 128, 64], name = '5_conv')
+
         net = self.conv_layer(net, [3, 3, 64, 128], name = '6_conv')
-        net = self.pooling_layer(net, name = '7_pool')
+        #net = self.conv_layer(net, [1, 1, 128, 64], name = '5_conv')
+        net = self.conv_layer(net, [3, 3, 64, 128], name = '7_conv')
+        net = self.identity_block(net,[3, 3, 64, 128],name= 'identty_3')
 
-        net = self.conv_layer(net, [3, 3, 128, 256], name = '8_conv')
-        net = self.conv_layer(net, [1, 1, 256, 128], name = '9_conv')
+        net = self.conv_layer(net, [3, 3, 64, 128], name = '8_conv')
+        net = self.conv_layer(net, [3, 3, 64, 128], name = '9_conv')
+        net = self.identity_block(net, [3, 3, 64, 256],name= 'identity_4')
+        #net = self.pooling_layer(net, name = '7_pool')
+
         net = self.conv_layer(net, [3, 3, 128, 256], name = '10_conv')
-        net = self.pooling_layer(net, name = '11_pool')
+        #net = self.conv_layer(net, [1, 1, 256, 128], name = '9_conv')
+        net = self.conv_layer(net, [3, 3, 128, 256], name = '11_conv')
+        net = self.identity_block(net,[3, 3, 128, 256],name= 'identty_5')
 
-        net = self.conv_layer(net, [3, 3, 256, 512], name = '12_conv')
-        net = self.conv_layer(net, [1, 1, 512, 256], name = '13_conv')
+        net = self.conv_layer(net, [3, 3, 128, 256], name = '12_conv')
+        #net = self.conv_layer(net, [1, 1, 256, 128], name = '9_conv')
+        net = self.conv_layer(net, [3, 3, 128, 256], name = '13_conv')
+        net = self.identity_block(net,[3, 3, 256, 512],name= 'identty_6')
+        #net = self.pooling_layer(net, name = '11_pool')
+
         net = self.conv_layer(net, [3, 3, 256, 512], name = '14_conv')
-        net = self.conv_layer(net, [1, 1, 512, 256], name = '15_conv')
-        net16 = self.conv_layer(net, [3, 3, 256, 512], name = '16_conv')
-        net = self.pooling_layer(net16, name = '17_pool')
+        #net = self.conv_layer(net, [1, 1, 512, 256], name = '13_conv')
+        net = self.conv_layer(net, [3, 3, 256, 512], name = '15_conv')
+        net = self.identity_block(net,[3, 3, 256, 512],name= 'identty_7')
+
+        net = self.conv_layer(net, [3, 3, 256, 512], name = '16_conv')
+        #net = self.conv_layer(net, [1, 1, 512, 256], name = '13_conv')
+        net = self.conv_layer(net, [3, 3, 256, 512], name = '17_conv')
+        net = self.identity_block(net,[3, 3, 256, 512],name= 'identty_8')
+        #net = self.conv_layer(net, [1, 1, 512, 256], name = '15_conv')
+        #net16 = self.conv_layer(net, [3, 3, 256, 512], name = '16_conv')
+        net = self.pooling_layer(net, name = '2_pool')
 
         net = self.conv_layer(net, [3, 3, 512, 1024], name = '18_conv')
         
 
         net = self.conv_layer(net, [1, 1, 1024, self.box_per_cell * (self.num_class + 5)], batch_norm=False, name = '19_conv')
 
-        return net
+        return net'''
+    
 
-
-    def conv_layer(self, inputs, shape, batch_norm = True, name = '0_conv'):
+    def conv_layer(self, inputs, shape, name = '0_conv'):
         weight = tf.Variable(tf.truncated_normal(shape, stddev=0.1), name='weight')
-        biases = tf.Variable(tf.constant(0.1, shape=[shape[3]]), name='biases')
+        #filters = 32
+        #weight = tf.Variable(tf.he_normal(shape, stddev=0.1), name='weight')
+        #biases = tf.Variable(tf.constant(0.1, shape=[shape[3]]), name='biases')
 
         conv = tf.nn.conv2d(inputs, weight, strides=[1, 1, 1, 1], padding='SAME', name=name)
+        #conv = tf.nn.conv2d(filters, (1,1), strides=[1, 1, 1, 1],padding='SAME',name=name)(inputs)
+        conv = Activation('relu')(conv)
+        #conv = tf.nn.conv2d(inputs, (1,1), strides=[1, 1, 1, 1], padding='SAME', name=name)
+        conv = tf.nn.conv2d(inputs, weight, strides=[1, 1, 1, 1], padding='SAME', name=name)
+        shortcut = tf.nn.conv2d(inputs, weight, strides=[1, 1, 1, 1], padding='SAME',name=name)
+        #shortcut = BatchNormalization(axis=bn_axis, name=bn_name_base + '1')(shortcut)
 
-        if batch_norm:
+        conv = layers.add([conv, shortcut])
+        conv = Activation('relu')(conv)
+        ''' if batch_norm:
             depth = shape[3]
             scale = tf.Variable(tf.ones([depth, ], dtype='float32'), name='scale')
             shift = tf.Variable(tf.zeros([depth, ], dtype='float32'), name='shift')
@@ -87,10 +164,21 @@ class Resnet18(object):
             conv = tf.add(conv_bn, biases)
             conv = tf.maximum(self.alpha * conv, conv)
         else:
-            conv = tf.add(conv, biases)
+            conv = tf.add(conv, biases)'''
 
         return conv
 
+    def identity_block(self,inputs,shape,name):
+        
+        #x = self.conv_layer(inputs,(1,1),filters)(inputs)
+        #weight = tf.Variable(tf.truncated_normal(shape, stddev=0.1), name='weight')
+        x = self.conv_layer(inputs,shape,name = name)
+        x = Activation('relu')(x)
+
+        x = layers.add([x,inputs])
+        x = Activation('relu')(x)
+
+        return x
 
     def pooling_layer(self, inputs, name = '1_pool'):
         pool = tf.nn.max_pool(inputs, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME', name = name)
